@@ -61,6 +61,8 @@ public class RandomGenTraps {
     public void init(FMLInitializationEvent event) {
         GameRegistry.registerWorldGenerator(new TNTVeinGenerator(), 0);
         MinecraftForge.EVENT_BUS.register(new TNTProximityHandler());
+        MinecraftForge.EVENT_BUS.register(new SleepHungerHandler()); // register sleep handler
+        MinecraftForge.EVENT_BUS.register(new SkyBaseEffectHandler()); // register sky base effects
         registerRecipes();
         logger.info("Random TNT Traps generator registered!");
     }

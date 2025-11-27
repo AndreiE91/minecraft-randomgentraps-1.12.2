@@ -1,8 +1,12 @@
 package com.em1.randomgentraps;
 
+import net.minecraft.block.Block;
 import net.minecraft.entity.item.EntityTNTPrimed;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.init.Blocks;
+import net.minecraft.init.Items;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 import net.minecraft.world.chunk.IChunkProvider;
@@ -14,9 +18,12 @@ import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
+import net.minecraftforge.fml.common.registry.EntityRegistry;
 import net.minecraftforge.fml.common.registry.GameRegistry;
 import net.minecraftforge.common.MinecraftForge;
 import org.apache.logging.log4j.Logger;
+
+import com.em1.randomgentraps.EntityVolatileTNT;
 
 import java.util.HashSet;
 import java.util.List;
@@ -32,47 +39,86 @@ public class RandomGenTraps {
     private static Logger logger;
     private static final Set<BlockPos> activatedTNT = new HashSet<>();
 
+    public static Block volatileTNT;
+
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
         logger = event.getModLog();
+
+        EntityRegistry.registerModEntity(
+                new ResourceLocation(MODID, "volatile_tnt"),
+                EntityVolatileTNT.class,
+                "volatile_tnt",
+                1,
+                this,
+                64,
+                1,
+                true
+        );
     }
 
     @Mod.EventHandler
     public void init(FMLInitializationEvent event) {
         GameRegistry.registerWorldGenerator(new TNTVeinGenerator(), 0);
         MinecraftForge.EVENT_BUS.register(new TNTProximityHandler());
+        registerRecipes();
         logger.info("Random TNT Traps generator registered!");
     }
 
-    public static class TNTVeinGenerator implements IWorldGenerator {
-        // Configuration - adjust these values to your preference
-        private static final int MIN_VEIN_SIZE = 5;
-        private static final int MAX_VEIN_SIZE = 15;
-        private static final int MIN_HEIGHT = 5;
-        private static final int MAX_HEIGHT = 250;
-        
-        // Depth-based spawn chances
-        private static final int SURFACE_LEVEL = 126; // Sea level
-        private static final double SURFACE_CHANCE = 0; // 0% at surface
-        private static final double DEEP_CHANCE = 1; // 100% at bedrock
+    private void registerRecipes() {
+        // 4 TNT + 1 Redstone Block = 2 Volatile TNT
+        GameRegistry.addShapedRecipe(
+                new ResourceLocation(MODID, "volatile_tnt"),
+                null,
+                new ItemStack(volatileTNT, 1),
+                " T ",
+                "TRT",
+                " T ",
+                'T', new ItemStack(Blocks.TNT),
+                'R', new ItemStack(Blocks.REDSTONE_BLOCK)
+        );
+    }
 
-        @Override
-        public void generate(Random random, int chunkX, int chunkZ, World world, IChunkGenerator chunkGenerator, IChunkProvider chunkProvider) {
+    public static class TNTVeinGenerator implements IWorldGenerator {
+
+        public void generateOverworld(Random random, int chunkX, int chunkZ, World world, IChunkGenerator chunkGenerator, IChunkProvider chunkProvider) {
             // Only generate in overworld (dimension 0)
             if (world.provider.getDimension() != 0) {
                 return;
             }
 
             // Generate multiple veins at different heights with depth-based probability
-            int attempts = 5 + random.nextInt(5); // 5-9 attempts per chunk
+            int attempts = ConfigHandler.worldGen.attemptsPerChunkOverworld + random.nextInt(ConfigHandler.worldGen.attemptsPerChunkVarianceOverworld);
             for (int i = 0; i < attempts; i++) {
-                int y = MIN_HEIGHT + random.nextInt(MAX_HEIGHT - MIN_HEIGHT);
-                
+                int y = ConfigHandler.worldGen.minHeight + random.nextInt(ConfigHandler.worldGen.maxHeight - ConfigHandler.worldGen.minHeight);
+
                 // Calculate chance based on depth (higher chance deeper underground)
-                double depthFactor = 1.0 - Math.max(0, Math.min(1, (double)(y - MIN_HEIGHT) / (SURFACE_LEVEL - MIN_HEIGHT)));
-                double spawnChance = SURFACE_CHANCE + (DEEP_CHANCE - SURFACE_CHANCE) * depthFactor;
-                
+                double depthFactor = 1.0 - Math.max(0, Math.min(1, (double)(y - ConfigHandler.worldGen.minHeight) / (ConfigHandler.worldGen.surfaceLevel - ConfigHandler.worldGen.minHeight)));
+                double spawnChance = ConfigHandler.worldGen.surfaceChance + (ConfigHandler.worldGen.deepChance - ConfigHandler.worldGen.surfaceChance) * depthFactor;
+
                 if (random.nextDouble() <= spawnChance) {
+                    generateTNTVein(world, random, chunkX * 16, chunkZ * 16, y);
+                }
+            }
+        }
+
+        @Override
+        public void generate(Random random, int chunkX, int chunkZ, World world,
+                             IChunkGenerator chunkGenerator, IChunkProvider chunkProvider) {
+
+            int dim = world.provider.getDimension();
+
+            // 0 = Overworld (use full logic)
+            if (dim == 0) {
+                generateOverworld(random, chunkX, chunkZ, world, chunkGenerator, chunkProvider);
+                return;
+            }
+
+            // Nether (-1) or End (1) — use simpler random generation
+            int attempts = ConfigHandler.worldGen.attemptsPerChunkOtherDims + random.nextInt(ConfigHandler.worldGen.attemptsPerChunkVarianceOtherDims);
+            if (dim == -1 || dim == 1) {
+                for (int i = 0; i < attempts; i++) {
+                    int y = 10 + random.nextInt(100);
                     generateTNTVein(world, random, chunkX * 16, chunkZ * 16, y);
                 }
             }
@@ -91,15 +137,15 @@ public class RandomGenTraps {
             }
 
             // Random vein size (larger veins deeper underground)
-            int depthBonus = Math.max(0, (SURFACE_LEVEL - targetY) / 10);
-            int veinSize = MIN_VEIN_SIZE + random.nextInt(MAX_VEIN_SIZE - MIN_VEIN_SIZE + 1) + depthBonus;
+            int depthBonus = Math.max(0, (ConfigHandler.worldGen.surfaceLevel - targetY) / 10);
+            int veinSize = ConfigHandler.worldGen.minVeinSize + random.nextInt(ConfigHandler.worldGen.maxVeinSize - ConfigHandler.worldGen.minVeinSize + 1) + depthBonus;
 
             // Generate vein using random walk pattern
             BlockPos currentPos = centerPos;
             for (int i = 0; i < veinSize; i++) {
                 // Replace solid blocks with TNT
                 if (world.getBlockState(currentPos).getMaterial().isSolid()) {
-                    world.setBlockState(currentPos, Blocks.TNT.getDefaultState(), 2);
+                    world.setBlockState(currentPos, RandomGenTraps.volatileTNT.getDefaultState(), 2);
                 }
 
                 // Random walk to next position
@@ -110,19 +156,16 @@ public class RandomGenTraps {
                 currentPos = currentPos.add(dx, dy, dz);
 
                 // Ensure we stay within reasonable bounds
-                if (currentPos.getY() < MIN_HEIGHT || currentPos.getY() > MAX_HEIGHT) {
+                if (currentPos.getY() < ConfigHandler.worldGen.minHeight || currentPos.getY() > ConfigHandler.worldGen.maxHeight) {
                     break;
                 }
             }
 
-            logger.info("Generated TNT vein at chunk ({}, {}) - Center: {} (Y: {}, Vein Size: {})", chunkX / 16, chunkZ / 16, centerPos, targetY, veinSize);
+            logger.info("Generated volatile TNT vein at chunk ({}, {}) - Center: {} (Y: {}, Vein Size: {})", chunkX / 16, chunkZ / 16, centerPos, targetY, veinSize);
         }
     }
 
     public static class TNTProximityHandler {
-        private static final double ACTIVATION_RADIUS = 5.0;
-        private static final int MIN_FUSE_TICKS = 1; // 0.05 seconds (1 tick)
-        private static final int MAX_FUSE_TICKS = 4; // 0.2 seconds (4 ticks)
 
         @SubscribeEvent
         public void onPlayerTick(TickEvent.PlayerTickEvent event) {
@@ -135,18 +178,18 @@ public class RandomGenTraps {
             BlockPos playerPos = player.getPosition();
 
             // Check blocks in a radius around the player
-            int radius = (int) Math.ceil(ACTIVATION_RADIUS);
+            int radius = (int) Math.ceil(ConfigHandler.proximityTrigger.activationRadius);
             for (int x = -radius; x <= radius; x++) {
                 for (int y = -radius; y <= radius; y++) {
                     for (int z = -radius; z <= radius; z++) {
                         BlockPos checkPos = playerPos.add(x, y, z);
                         
                         // Check if block is TNT and within activation radius
-                        if (world.getBlockState(checkPos).getBlock() == Blocks.TNT) {
+                        if (world.getBlockState(checkPos).getBlock() == RandomGenTraps.volatileTNT) {
                             double distance = player.getDistance(checkPos.getX() + 0.5, checkPos.getY() + 0.5, checkPos.getZ() + 0.5);
                             
                             // Only activate if within range, not already activated, AND exposed to air
-                            if (distance <= ACTIVATION_RADIUS && !activatedTNT.contains(checkPos) && isExposedToAir(world, checkPos)) {
+                            if (distance <= ConfigHandler.proximityTrigger.activationRadius && !activatedTNT.contains(checkPos) && isExposedToAir(world, checkPos)) {
                                 activateTNT(world, checkPos);
                                 activatedTNT.add(checkPos);
                             }
@@ -170,19 +213,20 @@ public class RandomGenTraps {
         }
 
         private void activateTNT(World world, BlockPos pos) {
-            // Remove TNT block
             world.setBlockToAir(pos);
-            
-            // Create primed TNT entity with short fuse
-            EntityTNTPrimed entityTNT = new EntityTNTPrimed(world, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, null);
-            
-            // Set random fuse between 0.05-0.2 seconds (1-4 ticks)
-            int fuseTicks = MIN_FUSE_TICKS + world.rand.nextInt(MAX_FUSE_TICKS - MIN_FUSE_TICKS + 1);
-            entityTNT.setFuse(fuseTicks);
-            
-            world.spawnEntity(entityTNT);
-            
-            logger.info("Activated TNT at {} with fuse: {} ticks", pos, fuseTicks);
+
+            EntityVolatileTNT tnt = new EntityVolatileTNT(world,
+                    pos.getX() + 0.5,
+                    pos.getY() + 0.5,
+                    pos.getZ() + 0.5);
+
+            int fuseTicks = ConfigHandler.proximityTrigger.minFuseTicks + world.rand.nextInt(ConfigHandler.proximityTrigger.maxFuseTicks - ConfigHandler.proximityTrigger.minFuseTicks + 1);
+            tnt.setFuse(fuseTicks);
+
+            world.spawnEntity(tnt);
+
+            logger.info("Activated volatile TNT at {} with fuse {} ticks", pos, fuseTicks);
         }
+
     }
 }

@@ -63,6 +63,7 @@ public class RandomGenTraps {
         MinecraftForge.EVENT_BUS.register(new TNTProximityHandler());
         MinecraftForge.EVENT_BUS.register(new SleepHungerHandler()); // register sleep handler
         MinecraftForge.EVENT_BUS.register(new SkyBaseEffectHandler()); // register sky base effects
+        MinecraftForge.EVENT_BUS.register(new EnderDragonTNTHandler()); // register dragon TNT handler
         registerRecipes();
         logger.info("Random TNT Traps generator registered!");
     }

@@ -29,6 +29,10 @@ public class ConfigHandler {
     @Config.Name("Sky Base")
     public static SkyBase skyBase = new SkyBase();
 
+    @Config.Comment("Ender Dragon TNT Settings")
+    @Config.Name("Dragon")
+    public static Dragon dragon = new Dragon();
+
     public static class WorldGen {
         @Config.Comment("Minimum vein size")
         @Config.RangeInt(min = 1, max = 50)
@@ -147,6 +151,52 @@ public class ConfigHandler {
         @Config.Comment("Nether roof trigger Y (apply all at once)")
         @Config.RangeInt(min = 0, max = 255)
         public int netherRoofY = 128;
+    }
+
+    public static class Dragon {
+        @Config.Comment("Min interval between TNT volleys (ticks)")
+        @Config.RangeInt(min = 1, max = 20000)
+        public int minIntervalTicks = 60;
+
+        @Config.Comment("Max interval between TNT volleys (ticks)")
+        @Config.RangeInt(min = 1, max = 20000)
+        public int maxIntervalTicks = 180;
+
+        @Config.Comment("Min bursts per burst mode")
+        @Config.RangeInt(min = 1, max = 1000)
+        public int minBurstCount = 3;
+
+        @Config.Comment("Max bursts per burst mode")
+        @Config.RangeInt(min = 1, max = 1000)
+        public int maxBurstCount = 6;
+
+        @Config.Comment("Min pause between burst modes (ticks)")
+        @Config.RangeInt(min = 1, max = 200000)
+        public int burstPauseMin = 600;
+
+        @Config.Comment("Max pause between burst modes (ticks)")
+        @Config.RangeInt(min = 1, max = 200000)
+        public int burstPauseMax = 1200;
+
+        @Config.Comment("Min TNT grid size")
+        @Config.RangeInt(min = 1, max = 1000)
+        public int minGridSize = 10;
+
+        @Config.Comment("Max TNT grid size")
+        @Config.RangeInt(min = 1, max = 1000)
+        public int maxGridSize = 20;
+
+        @Config.Comment("Min spacing between TNT entities")
+        @Config.RangeDouble(min = 0.1, max = 1000.0)
+        public double minSpacing = 6.0;
+
+        @Config.Comment("Max spacing between TNT entities")
+        @Config.RangeDouble(min = 0.1, max = 1000.0)
+        public double maxSpacing = 14.0;
+
+        @Config.Comment("Max speed multiplier at 0% health (1.0 = no scaling)")
+        @Config.RangeDouble(min = 1.0, max = 100.0)
+        public float enrageSpeedMultiplier = 10.0F;
     }
 
     @Mod.EventBusSubscriber(modid = RandomGenTraps.MODID)

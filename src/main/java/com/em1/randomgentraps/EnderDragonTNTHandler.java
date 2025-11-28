@@ -44,6 +44,9 @@ public class EnderDragonTNTHandler {
 
     @SubscribeEvent
     public void onWorldTick(TickEvent.WorldTickEvent event) {
+        // Check if dragon features are disabled
+        if (ConfigHandler.dragon.disable) return;
+
         if (event.phase != TickEvent.Phase.END) return;
         if (event.world.isRemote) return;
         if (event.world.provider.getDimension() != 1) return; // Only in The End
@@ -52,6 +55,12 @@ public class EnderDragonTNTHandler {
         List<EntityDragon> dragons = world.getEntities(EntityDragon.class, dragon -> !dragon.isDead);
 
         for (EntityDragon dragon : dragons) {
+            // Check health threshold before bombing
+            float healthPercent = dragon.getHealth() / dragon.getMaxHealth();
+            if (healthPercent > ConfigHandler.dragon.healthThreshold) {
+                continue; // Skip this dragon if above threshold
+            }
+
             UUID dragonId = dragon.getUniqueID();
             DragonTNTState state = dragonStates.computeIfAbsent(dragonId, 
                 id -> new DragonTNTState(
@@ -85,21 +94,27 @@ public class EnderDragonTNTHandler {
             }
         }
 
-        // Apply effects ONLY if at least one dragon alive
-        if (!dragons.isEmpty()) {
+        // Apply effects ONLY if at least one dragon alive AND airborne effects not disabled
+        if (!dragons.isEmpty() && ConfigHandler.dragon.airborneEffectsMode > 0) {
             List<EntityPlayer> players = world.getEntities(EntityPlayer.class, p -> !p.isDead);
             for (EntityPlayer player : players) {
                 double groundTopY = getTopSolidYBelow(world, player);
                 double heightAboveGround = player.posY - groundTopY;
 
                 if (heightAboveGround > 2.0D) {
-                    // Airborne: Nausea II, Blindness, Wither I, Poison I
-                    player.addPotionEffect(new PotionEffect(MobEffects.NAUSEA, 40, 1, true, false));   // amplifier 1 => level II
-                    player.addPotionEffect(new PotionEffect(MobEffects.BLINDNESS, 40, 0, true, false));
-                    player.addPotionEffect(new PotionEffect(MobEffects.WITHER, 40, 0, true, false));
-                    player.addPotionEffect(new PotionEffect(MobEffects.POISON, 40, 0, true, false));
+                    // Apply effects based on mode
+                    if (ConfigHandler.dragon.airborneEffectsMode >= 1) {
+                        // Mode 1 or 2: Blindness + Nausea
+                        player.addPotionEffect(new PotionEffect(MobEffects.NAUSEA, 40, 1, true, false));
+                        player.addPotionEffect(new PotionEffect(MobEffects.BLINDNESS, 40, 0, true, false));
+                    }
+                    if (ConfigHandler.dragon.airborneEffectsMode >= 2) {
+                        // Mode 2: Add Wither + Poison
+                        player.addPotionEffect(new PotionEffect(MobEffects.WITHER, 40, 0, true, false));
+                        player.addPotionEffect(new PotionEffect(MobEffects.POISON, 40, 0, true, false));
+                    }
                 } else {
-                    // Grounded: remove airborne effects
+                    // Grounded: remove all airborne effects
                     player.removePotionEffect(MobEffects.NAUSEA);
                     player.removePotionEffect(MobEffects.BLINDNESS);
                     player.removePotionEffect(MobEffects.WITHER);

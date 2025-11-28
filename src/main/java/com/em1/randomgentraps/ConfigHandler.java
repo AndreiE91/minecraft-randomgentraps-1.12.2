@@ -154,6 +154,17 @@ public class ConfigHandler {
     }
 
     public static class Dragon {
+        @Config.Comment("Disable all Ender Dragon features entirely")
+        public boolean disable = false;
+
+        @Config.Comment("Health percentage threshold above which dragon stops bombing (0.0-1.0, default 0.95 = 95%)")
+        @Config.RangeDouble(min = 0.0, max = 1.0)
+        public float healthThreshold = 0.95F;
+
+        @Config.Comment("Airborne effects mode: 0=Off, 1=Blindness+Nausea only, 2=Full effects (Blindness+Nausea+Wither+Poison)")
+        @Config.RangeInt(min = 0, max = 2)
+        public int airborneEffectsMode = 2;
+
         @Config.Comment("Min interval between TNT volleys (ticks)")
         @Config.RangeInt(min = 1, max = 20000)
         public int minIntervalTicks = 60;

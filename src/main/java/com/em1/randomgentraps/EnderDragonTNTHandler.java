@@ -11,6 +11,7 @@ import net.minecraft.util.EnumParticleTypes;
 import net.minecraft.util.SoundCategory;
 import net.minecraft.init.SoundEvents;
 import net.minecraft.world.World;
+import net.minecraftforge.event.entity.living.LivingHurtEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 
@@ -39,6 +40,23 @@ public class EnderDragonTNTHandler {
             this.nextInterval = initialInterval;
             this.burstsRemaining = burstCount;
             this.inBurstMode = true;
+        }
+    }
+
+    @SubscribeEvent
+    public void onDragonHurt(LivingHurtEvent event) {
+        // Check if dragon features are disabled
+        if (ConfigHandler.dragon.disable) return;
+        
+        // Only apply to Ender Dragons
+        if (!(event.getEntity() instanceof EntityDragon)) return;
+        
+        DamageSource source = event.getSource();
+        Entity attacker = source.getTrueSource();
+        
+        // Cancel damage if not from a player
+        if (!(attacker instanceof EntityPlayer)) {
+            event.setCanceled(true);
         }
     }
 

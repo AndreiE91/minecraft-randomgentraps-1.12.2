@@ -12,6 +12,7 @@ import net.minecraft.world.World;
 import net.minecraft.world.chunk.IChunkProvider;
 import net.minecraft.world.gen.IChunkGenerator;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
+import net.minecraft.item.Item;
 import net.minecraftforge.fml.common.IWorldGenerator;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
@@ -21,6 +22,12 @@ import net.minecraftforge.fml.common.gameevent.TickEvent;
 import net.minecraftforge.fml.common.registry.EntityRegistry;
 import net.minecraftforge.fml.common.registry.GameRegistry;
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.client.event.ModelRegistryEvent;
+import net.minecraftforge.client.model.ModelLoader;
+import net.minecraft.client.renderer.block.model.ModelResourceLocation;
+import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
 import org.apache.logging.log4j.Logger;
 
 import com.em1.randomgentraps.EntityVolatileTNT;
@@ -40,6 +47,7 @@ public class RandomGenTraps {
     private static final Set<BlockPos> activatedTNT = new HashSet<>();
 
     public static Block volatileTNT;
+    public static Item ntnDetector;
 
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
@@ -55,6 +63,10 @@ public class RandomGenTraps {
                 1,
                 true
         );
+
+        // Create and register the NTN Detector item
+        ntnDetector = new ItemNTNDetector();
+        GameRegistry.findRegistry(Item.class).register(ntnDetector);
     }
 
     @Mod.EventHandler
@@ -80,6 +92,39 @@ public class RandomGenTraps {
                 'T', new ItemStack(Blocks.TNT),
                 'R', new ItemStack(Blocks.REDSTONE_BLOCK)
         );
+
+        // NTN Detector recipe
+        // Top: glowstone dust, diamond, gold ingot
+        // Middle: repeater, redstone torch, comparator
+        // Bottom: iron ingot, volatile tnt block, iron ingot
+        GameRegistry.addShapedRecipe(
+            new ResourceLocation(MODID, "ntn_detector"),
+            null,
+            new ItemStack(ntnDetector, 1),
+            "GDH",
+            "RTC",
+            "IVI",
+            'G', new ItemStack(Items.GLOWSTONE_DUST),
+            'D', new ItemStack(Items.DIAMOND),
+            'H', new ItemStack(Items.GOLD_INGOT),
+            'R', new ItemStack(Items.REPEATER),
+            'T', new ItemStack(Items.REDSTONE),
+            'C', new ItemStack(Items.COMPARATOR),
+            'I', new ItemStack(Items.IRON_INGOT),
+            'V', new ItemStack(volatileTNT)
+        );
+    }
+
+    @Mod.EventBusSubscriber(value = Side.CLIENT, modid = RandomGenTraps.MODID)
+    public static class ClientRegistrar {
+        @SubscribeEvent
+        public static void onModelRegistry(ModelRegistryEvent event) {
+            ModelLoader.setCustomModelResourceLocation(
+                    ntnDetector,
+                    0,
+                    new ModelResourceLocation(MODID + ":ntn_detector", "inventory")
+            );
+        }
     }
 
     public static class TNTVeinGenerator implements IWorldGenerator {

@@ -1,0 +1,10 @@
+{
+  "parent": "item/generated",
+  "textures": {
+    "layer0": "randomgentraps:items/ntn_detector_green"
+  },
+  "overrides": [
+    { "predicate": { "randomgentraps:state": 1.0 }, "model": "randomgentraps:item/ntn_detector_yellow" },
+    { "predicate": { "randomgentraps:state": 2.0 }, "model": "randomgentraps:item/ntn_detector_red" }
+  ]
+}
